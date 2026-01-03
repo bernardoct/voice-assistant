@@ -1,3 +1,5 @@
+# Deprecated in favor of running a container on the Jetson Nano
+
 import time
 
 from fastapi import FastAPI, UploadFile, File

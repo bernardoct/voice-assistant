@@ -1,0 +1,6 @@
+.venv
+.wakeword-venv
+__pycache__
+
+nohup.out
+*wav

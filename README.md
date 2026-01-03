@@ -6,7 +6,7 @@ To run the Whisper server on the Jetson:
 ```
 ~ $ source ~/stt_server/.venv/bin/activate && nohup uvicorn server:app --host 0.0.0.0 --port 8008 &
 ```
-This should be made more ressitant to failure with systemd or even just a cron job.
+This should be made more resistant to failure with systemd or even just a cron job.
 
 ## Wakeword Listener
 
@@ -17,7 +17,17 @@ On the Pi, run (assuming the code was cloned to ~/voiceassistant):
 ~ $ source .wakeword-venv/bin/activate && nohup python hey_george_listener.py &
 ```
 
+The listener uses environment defaults from `~/.ha_env` plus the following optional variables:
+
+```
+export STT_URL="http://<jetson-ip>:8008/stt"
+export LLM_URL="http://<jetson-ip>:8000/v1/chat/completions"
+export LLM_MODEL="local-model"
+export LLM_API_KEY="local-anything"
+```
+
 ## LLM Server
+
 To run the LLM server on the Jetson:
 ```
 ~ $ git clone https://github.com/dusty-nv/jetson-containers
@@ -49,7 +59,10 @@ If the output had downloads, times, and the response from the LLM, the container
 ```
 On a different device connected to the same network, export the Jetson's IP to the environment JETSON_IP and call the client with:
 ```
-~ $ curl -X POST "http://$JETSON_IP:8000/v1/chat/completions"   -H "Content-Type: application/json"   -H "Authorization: Bearer local-anything"   -d '{
+~ $ curl -X POST "http://$JETSON_IP:8000/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer local-anything" \
+  -d '{
     "model": "local-model",
     "temperature": 0.0,
     "max_tokens": 64,

@@ -1,51 +1,44 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 import json
-import os
 import re
 import sys
 import time
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List
 
 import requests
 
-envfile = Path.home() / ".ha_env"
-if envfile.exists():
-    for line in envfile.read_text().splitlines():
-        if line.startswith("export "):
-            k, v = line[len("export "):].split("=", 1)
-            os.environ.setdefault(k, v.strip('"'))
+from assistant_env import load_settings
 
-
-HA_URL = os.environ.get("HA_URL", "http://192.168.1.203:8123")
-HA_TOKEN = os.environ.get("HA_TOKEN")
-OUT_PATH = Path(os.environ.get("HA_REGISTRY_PATH", str(Path.home() / ".cache" / "ha_entities.json")))
-TIMEOUT = 10
 
 def norm(s: str) -> str:
     s = s.lower().strip()
-    # normalize punctuation/spaces
     s = re.sub(r"[_\-]+", " ", s)
     s = re.sub(r"[^a-z0-9 ]+", " ", s)
     s = re.sub(r"\s+", " ", s).strip()
     return s
 
-def ha_get(path: str) -> Any:
-    if not HA_TOKEN:
+
+def ha_get(ha_url: str, ha_token: str, path: str, timeout: int = 10) -> Any:
+    if not ha_token:
         raise RuntimeError("HA_TOKEN env var not set")
-    r = requests.get(
-        f"{HA_URL}{path}",
-        headers={"Authorization": f"Bearer {HA_TOKEN}"},
-        timeout=TIMEOUT,
+    response = requests.get(
+        f"{ha_url}{path}",
+        headers={"Authorization": f"Bearer {ha_token}"},
+        timeout=timeout,
     )
-    r.raise_for_status()
-    return r.json()
+    response.raise_for_status()
+    return response.json()
+
 
 def main() -> int:
-    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    settings = load_settings()
+    out_path = settings.registry_path
+    out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # 1) Pull current entity states (includes friendly_name, etc.)
-    states = ha_get("/api/states")
+    states = ha_get(settings.ha_url, settings.ha_token, "/api/states")
 
     entities: List[Dict[str, Any]] = []
     for st in states:
@@ -56,31 +49,28 @@ def main() -> int:
         attrs = st.get("attributes", {}) or {}
         friendly = attrs.get("friendly_name") or entity_id
 
-        entities.append({
-            "entity_id": entity_id,
-            "domain": entity_id.split(".", 1)[0],
-            "friendly_name": friendly,
-            "friendly_norm": norm(str(friendly)),
-            "entity_norm": norm(entity_id),
-            # Optional fields (sometimes present)
-            "device_class": attrs.get("device_class"),
-            "supported_color_modes": attrs.get("supported_color_modes"),
-        })
+        entities.append(
+            {
+                "entity_id": entity_id,
+                "domain": entity_id.split(".", 1)[0],
+                "friendly_name": friendly,
+                "friendly_norm": norm(str(friendly)),
+                "entity_norm": norm(entity_id),
+                "device_class": attrs.get("device_class"),
+                "supported_color_modes": attrs.get("supported_color_modes"),
+            }
+        )
         if "brightness" in attrs:
-            if "supported_color_modes" not in entities[-1]:
+            supported = entities[-1]["supported_color_modes"]
+            if not supported:
                 entities[-1]["supported_color_modes"] = ["brightness"]
-            elif "brightness" not in entities[-1]["supported_color_modes"]:
-                entities[-1]["supported_color_modes"].append("brightness")
+            elif "brightness" not in supported:
+                supported.append("brightness")
         if "color_temp" in attrs.get("supported_color_modes", []):
-            # replace color_temp with color_temp_kelvin for clarity
             scm = entities[-1]["supported_color_modes"]
             scm.remove("color_temp")
             scm.append("color_temp_kelvin")
 
-        # lightbulb original rgb color: [255, 164, 82]
-
-    # 2) Build lookup indexes
-    # If two entities share a friendly name, keep a list (you’ll disambiguate by area words later)
     by_friendly: Dict[str, List[str]] = {}
     by_entity: Dict[str, str] = {}
     for e in entities:
@@ -89,7 +79,7 @@ def main() -> int:
 
     payload = {
         "generated_at": time.time(),
-        "ha_url": HA_URL,
+        "ha_url": settings.ha_url,
         "counts": {
             "lights": sum(1 for e in entities if e["domain"] == "light"),
             "switches": sum(1 for e in entities if e["domain"] == "switch"),
@@ -102,15 +92,15 @@ def main() -> int:
         },
     }
 
-    tmp = OUT_PATH.with_suffix(".tmp")
+    tmp = out_path.with_suffix(".tmp")
     tmp.write_text(json.dumps(payload, indent=2, sort_keys=True))
-    tmp.replace(OUT_PATH)
+    tmp.replace(out_path)
     return 0
+
 
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except Exception as e:
-        print(f"[ha_registry_update] ERROR: {e}", file=sys.stderr)
+    except Exception as exc:
+        print(f"[ha_registry_update] ERROR: {exc}", file=sys.stderr)
         sys.exit(1)
-

@@ -1,5 +1,23 @@
 # voice-assistant
 
+## Whisper Server for Voice Command Transcription
+
+To run the Whisper server on the Jetson:
+```
+~ $ source ~/stt_server/.venv/bin/activate && nohup uvicorn server:app --host 0.0.0.0 --port 8008 &
+```
+This should be made more ressitant to failure with systemd or even just a cron job.
+
+## Wakeword Listener
+
+On the Pi, run (assuming the code was cloned to ~/voiceassistant):
+
+```
+~ $ cd ~/voiceassistant
+~ $ source .wakeword-venv/bin/activate && nohup python hey_george_listener.py &
+```
+
+## LLM Server
 To run the LLM server on the Jetson:
 ```
 ~ $ git clone https://github.com/dusty-nv/jetson-containers

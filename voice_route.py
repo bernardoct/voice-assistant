@@ -160,13 +160,7 @@ def _validate_llm_result(
     return service, entity_id, cleaned
 
 
-def main() -> int:
-    if len(sys.argv) < 2:
-        print("Usage: voice_route.py 'turn on kitchen light'", file=sys.stderr)
-        return 2
-
-    settings = load_settings()
-    text = " ".join(sys.argv[1:])
+def handle_text(settings, text: str) -> None:
     reg = load_registry(str(settings.registry_path))
     result = llm_route(settings, text, reg)
     service, entity_id, data = _validate_llm_result(result, reg, settings)
@@ -175,6 +169,16 @@ def main() -> int:
     payload.update(data)
     ha_call(settings, domain, service, payload)
     print(f"Executed: {domain}.{service} -> {entity_id} {data or ''}".strip())
+
+
+def main() -> int:
+    if len(sys.argv) < 2:
+        print("Usage: voice_route.py 'turn on kitchen light'", file=sys.stderr)
+        return 2
+
+    settings = load_settings()
+    text = " ".join(sys.argv[1:])
+    handle_text(settings, text)
     return 0
 
 

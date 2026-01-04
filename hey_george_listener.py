@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import multiprocessing as mp
 import os
-from pathlib import Path
-import subprocess
-import sys
 import tempfile
 import time
 
@@ -34,12 +32,6 @@ WAKEWORD_NAME = "hey_jarvis"
 # If your mic is not default, set device index here (None = default)
 INPUT_DEVICE = None
 
-ROUTER = os.environ.get(
-    "VOICE_ROUTER",
-    str(Path(__file__).resolve().parent / "voice_route.py"),
-)
-
-
 
 def record_wav(seconds: float) -> str:
     audio = sd.rec(
@@ -67,12 +59,28 @@ def transcribe(stt_url: str, wav_path: str) -> str:
     return response.json().get("text", "").strip()
 
 
-def route_text(text: str) -> None:
-    subprocess.run([sys.executable, ROUTER, text], check=False)
+def router_process(text_queue: mp.Queue[str]) -> None:
+    settings = load_settings()
+    from voice_route import handle_text
+
+    while True:
+        text = text_queue.get()
+        if text is None:
+            break
+        handle_text(settings, text)
+
+
+def start_router() -> tuple[mp.Process, mp.Queue[str]]:
+    ctx = mp.get_context("spawn")
+    queue: mp.Queue[str] = ctx.Queue()
+    proc = ctx.Process(target=router_process, args=(queue,), daemon=True)
+    proc.start()
+    return proc, queue
 
 
 def main() -> None:
     settings = load_settings()
+    _, router_queue = start_router()
     print(
         f"Listening for wake word: {WAKEWORD_NAME} (temporary). Threshold={TRIGGER_THRESHOLD}"
     )
@@ -114,7 +122,7 @@ def main() -> None:
                     text = transcribe(settings.stt_url, wav)
                     print("Heard:", text)
                     if text:
-                        route_text(text)
+                        router_queue.put(text)
                 finally:
                     try:
                         os.remove(wav)

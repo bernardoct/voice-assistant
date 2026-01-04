@@ -39,7 +39,7 @@ def load_settings() -> Settings:
     )
     stt_url = os.environ.get("STT_URL", "http://192.168.1.117:8008/stt")
     llm_url = os.environ.get("LLM_URL") or os.environ.get(
-        "OPENAI_URL", "http://localhost:8000/v1/chat/completions"
+        "OPENAI_URL", "http://192.168.1.117:8000/v1/chat/completions"
     )
     llm_model = os.environ.get("LLM_MODEL", "local-model")
     llm_api_key = os.environ.get("LLM_API_KEY", "local-anything")

@@ -52,10 +52,11 @@ def _entity_options(reg: Dict[str, Any]) -> List[Dict[str, Any]]:
             ]
         ):
             out.append(
-                {
-                    "friendly_name": friendly_name,
-                    "supported_color_modes": entity.get("supported_color_modes"),
-                }
+                # {
+                #     "friendly_name": friendly_name,
+                #     "supported_color_modes": entity.get("supported_color_modes"),
+                # }
+                friendly_name
             )
     return out
 
@@ -81,20 +82,41 @@ def _build_prompt(user_text: str, reg: Dict[str, Any]) -> str:
 
 
 def _llm_request(llm_url: str, llm_model: str, llm_api_key: str, prompt: str) -> str:
-    response = requests.post(
-        llm_url,
-        headers={
-            "Authorization": f"Bearer {llm_api_key}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": llm_model,
-            "temperature": 0.0,
-            "max_tokens": 256,
-            "messages": [{"role": "user", "content": prompt}],
-        },
-        timeout=30,
-    )
+    # 1. Check prompt
+    print("Prompt to LLM:")
+    print(prompt)
+
+    # 2. Define Headers
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer local-anything"
+    }
+
+    # 3. Define Payload
+    payload = {
+        "model": llm_model,
+        "temperature": 0.0,
+        "messages": [
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+    }
+
+    # 4. Send Request
+    try:
+        # Using 'json=' automatically serializes the dictionary and sets content-type
+        response = requests.post(llm_url, headers=headers, json=payload)
+        
+        # Check for HTTP errors
+        response.raise_for_status()
+        
+        # Print the parsed JSON response
+        print(json.dumps(response.json(), indent=2))
+
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred: {e}")
     response.raise_for_status()
     payload = response.json()
     choices = payload.get("choices") or []

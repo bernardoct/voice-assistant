@@ -31,6 +31,9 @@ WAKEWORD_NAME = "hey_jarvis"
 
 # If your mic is not default, set device index here (None = default)
 INPUT_DEVICE = None
+DEVICE_INDEX = 1      # <-- PulseAudio device
+
+sd.default.device = (DEVICE_INDEX, None)
 
 
 def record_wav(seconds: float) -> str:
@@ -39,7 +42,7 @@ def record_wav(seconds: float) -> str:
         samplerate=SAMPLE_RATE,
         channels=1,
         dtype="float32",
-        device=INPUT_DEVICE,
+        # device=INPUT_DEVICE,
     )
     sd.wait()
     audio = np.squeeze(audio)
@@ -91,7 +94,7 @@ def main() -> None:
         samplerate=SAMPLE_RATE,
         dtype="int16",
         blocksize=CHUNK,
-        device=INPUT_DEVICE,
+        # device=INPUT_DEVICE,
     )
     stream.start()
     armed = True

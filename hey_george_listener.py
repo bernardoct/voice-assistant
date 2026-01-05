@@ -73,9 +73,9 @@ def router_process(text_queue: mp.Queue[str]) -> None:
         handle_text(settings, text)
 
 
-def start_router() -> tuple[mp.Process, mp.Queue[str]]:
-    ctx = mp.get_context("spawn")
-    queue: mp.Queue[str] = ctx.Queue()
+def start_router(ctx: mp.context.BaseContext, queue: mp.Queue[str] | None = None) -> tuple[mp.Process, mp.Queue[str]]:
+    if queue is None:
+        queue = ctx.Queue()
     proc = ctx.Process(target=router_process, args=(queue,), daemon=True)
     proc.start()
     return proc, queue
@@ -83,7 +83,8 @@ def start_router() -> tuple[mp.Process, mp.Queue[str]]:
 
 def main() -> None:
     settings = load_settings()
-    _, router_queue = start_router()
+    ctx = mp.get_context("spawn")
+    router_proc, router_queue = start_router(ctx)
     print(
         f"Listening for wake word: {WAKEWORD_NAME} (temporary). Threshold={TRIGGER_THRESHOLD}"
     )
@@ -102,6 +103,10 @@ def main() -> None:
 
     try:
         while True:
+            if not router_proc.is_alive():
+                print("Router process died; restarting.")
+                router_proc, router_queue = start_router(ctx, router_queue)
+
             data, _ = stream.read(CHUNK)
             pcm16 = np.squeeze(data)
 
@@ -122,7 +127,10 @@ def main() -> None:
 
                 wav = record_wav(RECORD_SECONDS)
                 try:
+                    t0 = time.time()
                     text = transcribe(settings.stt_url, wav)
+                    dt = time.time() - t0
+                    print(f"Transcription took {dt:.2f} seconds.")
                     print("Heard:", text)
                     if text:
                         router_queue.put(text)

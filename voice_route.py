@@ -36,6 +36,10 @@ def ha_call(settings, domain: str, service: str, data: dict) -> None:
 
 def _entity_options(reg: Dict[str, Any]) -> List[Dict[str, Any]]:
     out = []
+    mode_to_param = {
+        "brightness": "brightness_pct",
+        "color_temp_kelvin": "color_temp_kelvin",
+    }
     for entity in reg.get("entities", []):
         friendly_name = entity.get("friendly_name", "")
         if all(
@@ -51,12 +55,15 @@ def _entity_options(reg: Dict[str, Any]) -> List[Dict[str, Any]]:
                 "Speech enhancement",
             ]
         ):
+            supported_modes = entity.get("supported_color_modes") or []
+            extra_params = [
+                mode_to_param[m] for m in supported_modes if m in mode_to_param
+            ]
             out.append(
-                # {
-                #     "friendly_name": friendly_name,
-                #     "supported_color_modes": entity.get("supported_color_modes"),
-                # }
-                friendly_name
+                {
+                    "friendly_name": friendly_name,
+                    "extra_parameters": extra_params,
+                }
             )
     return out
 
@@ -75,10 +82,10 @@ def _build_prompt(user_text: str, reg: Dict[str, Any]) -> str:
         "output_schema": {
             "service": "string, one of action_options",
             "entity_friendly_name": "string, one of entity_options.friendly_name",
-            "data": "object; optional. Only include extra parameters supported by the selected entity. THERE MAY BE MULTIPLE.",
+            "data": "object; optional. Only include keys from selected entity_options.extra_parameters. THERE MAY BE MULTIPLE.",
         },
     }
-    return json.dumps(prompt, ensure_ascii=True)
+    return json.dumps(prompt, ensure_ascii=True, indent=2)
 
 
 def _llm_request(llm_url: str, llm_model: str, llm_api_key: str, prompt: str) -> str:
@@ -185,7 +192,11 @@ def _validate_llm_result(
 def handle_text(settings, text: str) -> None:
     reg = load_registry(str(settings.registry_path))
     result = llm_route(settings, text, reg)
-    service, entity_id, data = _validate_llm_result(result, reg, settings)
+    try:
+        service, entity_id, data = _validate_llm_result(result, reg, settings)
+    except RuntimeError as e:
+        print(f"Validation error: {e}")
+        return
     domain = entity_id.split(".", 1)[0]
     payload = {"entity_id": entity_id}
     payload.update(data)
@@ -205,4 +216,5 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # sys.exit(main())
+    main()

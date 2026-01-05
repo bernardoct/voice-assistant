@@ -1,6 +1,8 @@
-from fastapi import FastAPI, UploadFile, File
+rom fastapi import FastAPI, UploadFile, File, Query
 from faster_whisper import WhisperModel
 import tempfile, shutil, time, os
+import inspect
+from typing import List, Optional
 
 app = FastAPI()
 
@@ -10,13 +12,11 @@ model_fast = WhisperModel("small", device="cuda", compute_type="int8_float16")
 # Fallback: more robust
 model_robust = WhisperModel("medium", device="cuda", compute_type="float16")
 
-# VAD tuned for short assistant queries (faster endpointing, fewer trailing silences)
 VAD_PARAMS = {
-    "min_silence_duration_ms": 180,  # lower = stop sooner (latency down)
-    "speech_pad_ms": 80,             # keep a little context
+    "min_silence_duration_ms": 180,
+    "speech_pad_ms": 80,
 }
 
-# Decoding tuned for low latency
 TRANSCRIBE_KW = dict(
     vad_filter=True,
     vad_parameters=VAD_PARAMS,
@@ -24,28 +24,85 @@ TRANSCRIBE_KW = dict(
     best_of=1,
     temperature=0.0,
     without_timestamps=True,
-    condition_on_previous_text=False,  # helps short utterances; avoids drift
+    condition_on_previous_text=False,
 )
 
-# Simple fallback policy thresholds
 LANG_PROB_FALLBACK = 0.60
 MIN_CHARS_FALLBACK = 3
 
+# ---- NEW: global bias words (optional default) ----
+DEFAULT_BIAS_WORDS = [
+    # put your common proper nouns / device names here
+    # "Styrbar", "Alpstuga", "Sonos", "Conbee"
+    "Tolomeo",
+    "Artemide",
+    "Noguchi",
+]
+
+def build_initial_prompt(bias_words: List[str]) -> str:
+    """
+    Whisper responds better if you include the words in short plausible phrases
+    instead of just a list.
+    """
+    if not bias_words:
+        return ""
+
+    words = ", ".join(bias_words)
+    # Keep it short; prompts that are too long can hurt latency and accuracy.
+    return (
+            f"Look for:\n* home assistant actions (e.g., turn on, turn off, brightness, etc.), followed by \n* a home device name/noun, including {words}."
+    )
+
+def add_hotwords_if_supported(model: WhisperModel, kw: dict, bias_words: List[str]) -> dict:
+    """
+    Some faster-whisper versions support hotwords in WhisperModel.transcribe.
+    Detect it safely and add if available.
+    """
+    if not bias_words:
+        return kw
+
+    try:
+        sig = inspect.signature(model.transcribe)
+        if "hotwords" in sig.parameters:
+            # faster-whisper typically expects a string like "word1 word2"
+            kw = dict(kw)
+            kw["hotwords"] = " ".join(bias_words)
+    except Exception:
+        pass
+
+    return kw
+
 @app.post("/stt")
-async def stt(audio: UploadFile = File(...)):
-    # Save upload to temp file (fastest easy path; memory path is possible but more work)
+async def stt(
+    audio: UploadFile = File(...),
+    bias: Optional[List[str]] = Query(default=None, description="Words/phrases to bias toward"),
+):
+    # Save upload to temp file
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
         shutil.copyfileobj(audio.file, tmp)
         tmp_path = tmp.name
 
+    # combine per-request bias with defaults
+    bias_words = []
+    if DEFAULT_BIAS_WORDS:
+        bias_words.extend(DEFAULT_BIAS_WORDS)
+    if bias:
+        # keep user-provided bias short/sane
+        bias_words.extend([b.strip() for b in bias if b and b.strip()])
+
+    # de-dupe while preserving order
+    seen = set()
+    bias_words = [w for w in bias_words if not (w.lower() in seen or seen.add(w.lower()))]
+
     try:
-        info, text, used = transcribe_with_fallback(tmp_path)
+        info, text, used = transcribe_with_fallback(tmp_path, bias_words=bias_words)
         return {
             "text": text,
             "language": info.language,
             "language_probability": getattr(info, "language_probability", None),
             "duration": info.duration,
             "model": used,
+            "bias_words": bias_words,
         }
     finally:
         try:
@@ -53,9 +110,21 @@ async def stt(audio: UploadFile = File(...)):
         except OSError:
             pass
 
-def transcribe_once(model, path):
+def transcribe_once(model, path, bias_words: List[str]):
     t0 = time.time()
-    segments, info = model.transcribe(path, **TRANSCRIBE_KW)
+
+    kw = dict(TRANSCRIBE_KW)
+
+    # ---- NEW: initial_prompt ----
+    prompt = build_initial_prompt(bias_words)
+    if prompt:
+        print("Inition prompt: ", prompt)
+        kw["initial_prompt"] = prompt
+
+    # ---- NEW: hotwords if supported ----
+    kw = add_hotwords_if_supported(model, kw, bias_words)
+
+    segments, info = model.transcribe(path, **kw)
     text = " ".join(seg.text.strip() for seg in segments).strip()
     dt = time.time() - t0
 
@@ -64,8 +133,8 @@ def transcribe_once(model, path):
 
     return info, text, dt, rtf
 
-def transcribe_with_fallback(path):
-    info, text, dt, rtf = transcribe_once(model_fast, path)
+def transcribe_with_fallback(path, bias_words: List[str]):
+    info, text, dt, rtf = transcribe_once(model_fast, path, bias_words=bias_words)
 
     lang_prob = getattr(info, "language_probability", 1.0)
     need_fallback = (len(text) < MIN_CHARS_FALLBACK) or (lang_prob < LANG_PROB_FALLBACK)
@@ -81,7 +150,7 @@ def transcribe_with_fallback(path):
     )
 
     if need_fallback:
-        info2, text2, dt2, rtf2 = transcribe_once(model_robust, path)
+        info2, text2, dt2, rtf2 = transcribe_once(model_robust, path, bias_words=bias_words)
         lang_prob2 = getattr(info2, "language_probability", 1.0)
 
         print(

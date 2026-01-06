@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import multiprocessing as mp
 import os
 import tempfile
 import time
@@ -13,7 +12,6 @@ import requests
 
 from openwakeword.model import Model
 
-from assistant_env import load_settings
 from ha_client import play_on_sonos, set_volume
 
 # --- CONFIG ---
@@ -62,29 +60,7 @@ def transcribe(stt_url: str, wav_path: str) -> str:
     return response.json().get("text", "").strip()
 
 
-def router_process(text_queue: mp.Queue[str]) -> None:
-    settings = load_settings()
-    from voice_route import handle_text
-
-    while True:
-        text = text_queue.get()
-        if text is None:
-            break
-        handle_text(settings, text)
-
-
-def start_router(ctx: mp.context.BaseContext, queue: mp.Queue[str] | None = None) -> tuple[mp.Process, mp.Queue[str]]:
-    if queue is None:
-        queue = ctx.Queue()
-    proc = ctx.Process(target=router_process, args=(queue,), daemon=True)
-    proc.start()
-    return proc, queue
-
-
-def main() -> None:
-    settings = load_settings()
-    ctx = mp.get_context("spawn")
-    router_proc, router_queue = start_router(ctx)
+def run_listener(settings, on_text) -> None:
     print(
         f"Listening for wake word: {WAKEWORD_NAME} (temporary). Threshold={TRIGGER_THRESHOLD}"
     )
@@ -103,10 +79,6 @@ def main() -> None:
 
     try:
         while True:
-            if not router_proc.is_alive():
-                print("Router process died; restarting.")
-                router_proc, router_queue = start_router(ctx, router_queue)
-
             data, _ = stream.read(CHUNK)
             pcm16 = np.squeeze(data)
 
@@ -120,12 +92,17 @@ def main() -> None:
                 play_on_sonos(
                     settings,
                     "media_player.living_room",
-                    "http://192.168.1.203:8123/local/ready_for_capture.wav",
+                    f"{settings.ha_url}/local/ready_for_capture.wav",
                 )
 
                 time.sleep(0.15)  # tiny pause to avoid clipping first syllable
 
                 wav = record_wav(RECORD_SECONDS)
+                play_on_sonos(
+                    settings,
+                    "media_player.living_room",
+                    f"{settings.ha_url}/local/capture_ended.wav",
+                )
                 try:
                     t0 = time.time()
                     text = transcribe(settings.stt_url, wav)
@@ -133,7 +110,7 @@ def main() -> None:
                     print(f"Transcription took {dt:.2f} seconds.")
                     print("Heard:", text)
                     if text:
-                        router_queue.put(text)
+                        on_text(text)
                 finally:
                     try:
                         os.remove(wav)
@@ -156,4 +133,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    from voice_assistant import main
+
     main()

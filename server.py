@@ -1,4 +1,4 @@
-rom fastapi import FastAPI, UploadFile, File, Query
+from fastapi import FastAPI, UploadFile, File, Query
 from faster_whisper import WhisperModel
 import tempfile, shutil, time, os
 import inspect
@@ -30,29 +30,6 @@ TRANSCRIBE_KW = dict(
 LANG_PROB_FALLBACK = 0.60
 MIN_CHARS_FALLBACK = 3
 
-# ---- NEW: global bias words (optional default) ----
-DEFAULT_BIAS_WORDS = [
-    # put your common proper nouns / device names here
-    # "Styrbar", "Alpstuga", "Sonos", "Conbee"
-    "Tolomeo",
-    "Artemide",
-    "Noguchi",
-]
-
-def build_initial_prompt(bias_words: List[str]) -> str:
-    """
-    Whisper responds better if you include the words in short plausible phrases
-    instead of just a list.
-    """
-    if not bias_words:
-        return ""
-
-    words = ", ".join(bias_words)
-    # Keep it short; prompts that are too long can hurt latency and accuracy.
-    return (
-            f"Look for:\n* home assistant actions (e.g., turn on, turn off, brightness, etc.), followed by \n* a home device name/noun, including {words}."
-    )
-
 def add_hotwords_if_supported(model: WhisperModel, kw: dict, bias_words: List[str]) -> dict:
     """
     Some faster-whisper versions support hotwords in WhisperModel.transcribe.
@@ -82,12 +59,8 @@ async def stt(
         shutil.copyfileobj(audio.file, tmp)
         tmp_path = tmp.name
 
-    # combine per-request bias with defaults
     bias_words = []
-    if DEFAULT_BIAS_WORDS:
-        bias_words.extend(DEFAULT_BIAS_WORDS)
     if bias:
-        # keep user-provided bias short/sane
         bias_words.extend([b.strip() for b in bias if b and b.strip()])
 
     # de-dupe while preserving order
@@ -114,12 +87,6 @@ def transcribe_once(model, path, bias_words: List[str]):
     t0 = time.time()
 
     kw = dict(TRANSCRIBE_KW)
-
-    # ---- NEW: initial_prompt ----
-    prompt = build_initial_prompt(bias_words)
-    if prompt:
-        print("Inition prompt: ", prompt)
-        kw["initial_prompt"] = prompt
 
     # ---- NEW: hotwords if supported ----
     kw = add_hotwords_if_supported(model, kw, bias_words)

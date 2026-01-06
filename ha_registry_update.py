@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import ast
 import json
 import re
 import sys
@@ -33,12 +34,59 @@ def ha_get(ha_url: str, ha_token: str, path: str, timeout: int = 10) -> Any:
     return response.json()
 
 
+def ha_post(ha_url: str, ha_token: str, path: str, payload: dict, timeout: int = 10) -> Any:
+    if not ha_token:
+        raise RuntimeError("HA_TOKEN env var not set")
+    response = requests.post(
+        f"{ha_url}{path}",
+        headers={"Authorization": f"Bearer {ha_token}"},
+        json=payload,
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    return response.text
+
+
+def ha_template(settings, template: str) -> Any:
+    raw = ha_post(settings.ha_url, settings.ha_token, "/api/template", {"template": template})
+    raw = raw.strip()
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        try:
+            return ast.literal_eval(raw)
+        except (SyntaxError, ValueError):
+            return raw
+
+
 def main() -> int:
     settings = load_settings()
     out_path = settings.registry_path
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     states = ha_get(settings.ha_url, settings.ha_token, "/api/states")
+    areas: List[Dict[str, Any]] = []
+    area_names: List[str] = []
+    area_errors: List[str] = []
+    for path in ("/api/areas", "/api/config/area_registry"):
+        try:
+            areas = ha_get(settings.ha_url, settings.ha_token, path)
+            break
+        except Exception as exc:
+            area_errors.append(f"{path}: {exc}")
+    if not areas:
+        try:
+            area_names = ha_template(settings, "{{ areas() }}") or []
+        except Exception as exc:
+            area_errors.append(f"/api/template areas(): {exc}")
+    if not areas and not area_names:
+        print(
+            "[ha_registry_update] WARN: failed to load areas: "
+            + "; ".join(area_errors),
+            file=sys.stderr,
+        )
 
     entities: List[Dict[str, Any]] = []
     for st in states:
@@ -85,12 +133,50 @@ def main() -> int:
             "switches": sum(1 for e in entities if e["domain"] == "switch"),
             "total": len(entities),
         },
+        "areas": [],
         "entities": entities,
         "index": {
             "by_friendly_norm": by_friendly,
             "by_entity_norm": by_entity,
         },
     }
+
+    if areas:
+        payload["areas"] = [
+            {
+                "area_id": a.get("area_id"),
+                "name": a.get("name"),
+                "name_norm": norm(str(a.get("name", ""))),
+            }
+            for a in areas
+            if a.get("name")
+        ]
+    elif area_names:
+        valid_entities = {e["entity_id"]: e for e in entities}
+        for name in area_names:
+            if not name:
+                continue
+            try:
+                entity_ids = ha_template(settings, f"{{{{ area_entities({name!r}) }}}}") or []
+            except Exception as exc:
+                print(
+                    f"[ha_registry_update] WARN: failed to load entities for area '{name}': {exc}",
+                    file=sys.stderr,
+                )
+                entity_ids = []
+            light_entities = [
+                entity_id
+                for entity_id in entity_ids
+                if (valid_entities.get(entity_id) or {}).get("domain") == "light"
+            ]
+            payload["areas"].append(
+                {
+                    "area_id": None,
+                    "name": name,
+                    "name_norm": norm(str(name)),
+                    "light_entities": light_entities,
+                }
+            )
 
     tmp = out_path.with_suffix(".tmp")
     tmp.write_text(json.dumps(payload, indent=2, sort_keys=True))

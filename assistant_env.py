@@ -26,6 +26,9 @@ class Settings:
     llm_url: str
     llm_model: str
     llm_api_key: str
+    tts_domain: str
+    tts_service: str
+    tts_target_field: str
 
 
 def load_settings() -> Settings:
@@ -43,6 +46,9 @@ def load_settings() -> Settings:
     )
     llm_model = os.environ.get("LLM_MODEL", "local-model")
     llm_api_key = os.environ.get("LLM_API_KEY", "local-anything")
+    tts_domain = os.environ.get("TTS_DOMAIN", "tts")
+    tts_service = os.environ.get("TTS_SERVICE", "speak")
+    tts_target_field = os.environ.get("TTS_TARGET_FIELD", "media_player_entity_id")
 
     return Settings(
         ha_url=ha_url,
@@ -52,4 +58,7 @@ def load_settings() -> Settings:
         llm_url=llm_url,
         llm_model=llm_model,
         llm_api_key=llm_api_key,
+        tts_domain=tts_domain,
+        tts_service=tts_service,
+        tts_target_field=tts_target_field,
     )

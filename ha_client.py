@@ -45,3 +45,8 @@ def set_volume(settings: Settings, entity_id: str, level: float) -> None:
         "volume_set",
         {"entity_id": entity_id, "volume_level": level},
     )
+
+
+def speak_on_sonos(settings: Settings, entity_id: str, message: str) -> None:
+    data = {settings.tts_target_field: entity_id, "message": message}
+    call_service(settings, settings.tts_domain, settings.tts_service, data)

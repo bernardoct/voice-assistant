@@ -53,6 +53,7 @@ def add_hotwords_if_supported(model: WhisperModel, kw: dict, bias_words: List[st
 async def stt(
     audio: UploadFile = File(...),
     bias: Optional[List[str]] = Query(default=None, description="Words/phrases to bias toward"),
+    prompt: Optional[str] = Query(default=None, description="Initial prompt to bias transcription"),
 ):
     # Save upload to temp file
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
@@ -62,13 +63,18 @@ async def stt(
     bias_words = []
     if bias:
         bias_words.extend([b.strip() for b in bias if b and b.strip()])
+    prompt_text = (prompt or "").strip()
 
     # de-dupe while preserving order
     seen = set()
     bias_words = [w for w in bias_words if not (w.lower() in seen or seen.add(w.lower()))]
 
     try:
-        info, text, used = transcribe_with_fallback(tmp_path, bias_words=bias_words)
+        info, text, used = transcribe_with_fallback(
+            tmp_path,
+            bias_words=bias_words,
+            prompt=prompt_text,
+        )
         return {
             "text": text,
             "language": info.language,
@@ -76,6 +82,7 @@ async def stt(
             "duration": info.duration,
             "model": used,
             "bias_words": bias_words,
+            "prompt": prompt_text or None,
         }
     finally:
         try:
@@ -83,10 +90,12 @@ async def stt(
         except OSError:
             pass
 
-def transcribe_once(model, path, bias_words: List[str]):
+def transcribe_once(model, path, bias_words: List[str], prompt: str):
     t0 = time.time()
 
     kw = dict(TRANSCRIBE_KW)
+    if prompt:
+        kw["initial_prompt"] = prompt
 
     # ---- NEW: hotwords if supported ----
     kw = add_hotwords_if_supported(model, kw, bias_words)
@@ -100,8 +109,8 @@ def transcribe_once(model, path, bias_words: List[str]):
 
     return info, text, dt, rtf
 
-def transcribe_with_fallback(path, bias_words: List[str]):
-    info, text, dt, rtf = transcribe_once(model_fast, path, bias_words=bias_words)
+def transcribe_with_fallback(path, bias_words: List[str], prompt: str):
+    info, text, dt, rtf = transcribe_once(model_fast, path, bias_words=bias_words, prompt=prompt)
 
     lang_prob = getattr(info, "language_probability", 1.0)
     need_fallback = (len(text) < MIN_CHARS_FALLBACK) or (lang_prob < LANG_PROB_FALLBACK)
@@ -117,7 +126,12 @@ def transcribe_with_fallback(path, bias_words: List[str]):
     )
 
     if need_fallback:
-        info2, text2, dt2, rtf2 = transcribe_once(model_robust, path, bias_words=bias_words)
+        info2, text2, dt2, rtf2 = transcribe_once(
+            model_robust,
+            path,
+            bias_words=bias_words,
+            prompt=prompt,
+        )
         lang_prob2 = getattr(info2, "language_probability", 1.0)
 
         print(

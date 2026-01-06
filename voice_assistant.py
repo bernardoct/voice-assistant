@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import multiprocessing as mp
+import threading
 import time
 from typing import Any, Dict, Tuple
 
 from assistant_env import load_settings
-from ha_client import call_service, set_volume, speak_on_sonos
-from hey_george_listener import run_listener
+from ha_client import call_service
+from hey_george_listener import run_listener, speak_reply_on_sonos
 from voice_route import llm_route, load_registry, norm
 
 ALLOWED_SERVICES = {"turn_on", "turn_off"}
@@ -90,11 +91,7 @@ def _validate_llm_result(
 
 
 def _speak_reply(settings, message: str) -> None:
-    message = message.strip()
-    if not message:
-        return
-    set_volume(settings, "media_player.living_room", 0.1)
-    speak_on_sonos(settings, "media_player.living_room", message)
+    speak_reply_on_sonos(settings, message)
 
 
 def handle_text(settings, text: str) -> None:
@@ -124,7 +121,10 @@ def router_process(text_queue: mp.Queue[str]) -> None:
         text = text_queue.get()
         if text is None:
             break
-        handle_text(settings, text)
+        try:
+            handle_text(settings, text)
+        except Exception as exc:
+            print(f"Router error: {exc}")
 
 
 def start_router(
@@ -142,15 +142,33 @@ def main() -> None:
     settings = load_settings()
     ctx = mp.get_context("spawn")
     router_proc, router_queue = start_router(ctx)
+    router_lock = threading.Lock()
+    stop_event = threading.Event()
 
     def on_text(text: str) -> None:
         nonlocal router_proc, router_queue
-        if not router_proc.is_alive():
-            print("Router process died; restarting.")
-            router_proc, router_queue = start_router(ctx, router_queue)
-        router_queue.put(text)
+        with router_lock:
+            if not router_proc.is_alive():
+                print("Router process died; restarting.")
+                router_proc, router_queue = start_router(ctx, router_queue)
+            router_queue.put(text)
 
-    run_listener(settings, on_text)
+    def monitor_router() -> None:
+        nonlocal router_proc, router_queue
+        while not stop_event.is_set():
+            with router_lock:
+                if not router_proc.is_alive():
+                    print("Router process died; restarting.")
+                    router_proc, router_queue = start_router(ctx, router_queue)
+            stop_event.wait(0.5)
+
+    monitor = threading.Thread(target=monitor_router, daemon=True)
+    monitor.start()
+
+    try:
+        run_listener(settings, on_text)
+    finally:
+        stop_event.set()
 
 
 if __name__ == "__main__":

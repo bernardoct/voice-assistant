@@ -69,6 +69,7 @@ def _build_prompt(user_text: str, reg: Dict[str, Any]) -> str:
         "transcription of a verbal command and the STT algorithm may misunderstand words, so be mindful of words "
         "that sound similar. If the user asks to control all lights in a room, set room_name from room_options. "
         "If the request is unrelated to home control or is unclear, set intent to reply and provide response_text. "
+        "If the request seems like an accidental trigger of the voice assistant, respond with an empty reply."
         "ANSWER IN ENGLISH",
         "user_text": user_text,
         "action_options": actions,

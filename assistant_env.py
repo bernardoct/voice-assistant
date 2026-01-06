@@ -29,6 +29,8 @@ class Settings:
     tts_domain: str
     tts_service: str
     tts_target_field: str
+    tts_output_dir: Path | None
+    tts_base_url: str | None
 
 
 def load_settings() -> Settings:
@@ -49,6 +51,12 @@ def load_settings() -> Settings:
     tts_domain = os.environ.get("TTS_DOMAIN", "tts")
     tts_service = os.environ.get("TTS_SERVICE", "speak")
     tts_target_field = os.environ.get("TTS_TARGET_FIELD", "media_player_entity_id")
+    tts_output_dir_raw = os.environ.get("TTS_OUTPUT_DIR")
+    if tts_output_dir_raw:
+        tts_output_dir = Path(tts_output_dir_raw)
+    else:
+        tts_output_dir = Path.home() / "homeassistant" / "www"
+    tts_base_url = os.environ.get("TTS_BASE_URL") or f"{ha_url}/local"
 
     return Settings(
         ha_url=ha_url,
@@ -61,4 +69,6 @@ def load_settings() -> Settings:
         tts_domain=tts_domain,
         tts_service=tts_service,
         tts_target_field=tts_target_field,
+        tts_output_dir=tts_output_dir,
+        tts_base_url=tts_base_url,
     )

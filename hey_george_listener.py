@@ -87,6 +87,11 @@ def transcribe(stt_url: str, wav_path: str) -> str:
     return response.json().get("text", "").strip()
 
 
+def play_error_sound_on_sonos(settings):
+    url = f"{settings.ha_url}/local/capture_error.wav"
+    play_on_sonos(settings, "media_player.living_room", url)
+    
+
 def speak_reply_on_sonos(settings, message: str) -> None:
     message = message.strip()
     if not message:

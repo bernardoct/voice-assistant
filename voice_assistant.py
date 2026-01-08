@@ -8,7 +8,7 @@ from typing import Any, Dict, Tuple
 
 from assistant_env import load_settings
 from ha_client import call_service
-from hey_george_listener import run_listener, speak_reply_on_sonos
+from hey_george_listener import run_listener, speak_reply_on_sonos, play_error_sound_on_sonos
 from voice_route import llm_route, load_registry, norm
 
 ALLOWED_SERVICES = {"turn_on", "turn_off"}
@@ -55,6 +55,13 @@ def _validate_llm_result(
     entity_friendly_name = result.get("entity_friendly_name")
     room_name = result.get("room_name")
     data = result.get("data") or {}
+    if service == "turn_on":
+        data = {k: v for k, v in data.items() if v is not None}
+    else:
+        data = {}
+
+    if entity_friendly_name and room_name:
+        room_name = None  # Ignore room_name if entity_friendly_name is provided
 
     if service not in ALLOWED_SERVICES:
         raise RuntimeError(f"Invalid service from LLM: {service}")
@@ -94,13 +101,20 @@ def _speak_reply(settings, message: str) -> None:
     speak_reply_on_sonos(settings, message)
 
 
+def _play_error_sound_on_sonos(settings) -> None:
+    play_error_sound_on_sonos(settings)
+
 def handle_text(settings, text: str) -> None:
     reg = load_registry(str(settings.registry_path))
     result = llm_route(settings, text, reg)
     response_text = (result.get("response_text") or "").strip()
-    intent = result.get("intent")
+    intent = result.get("intent", "")
+    service = result.get("service", "")
     if intent == "reply" or (not result.get("service") and response_text):
         _speak_reply(settings, response_text or "I am not sure how to help with that.")
+        return
+    if service == "not_applicable":
+        _play_error_sound_on_sonos(settings)
         return
     try:
         domain, service, payload = _validate_llm_result(result, reg)
@@ -109,7 +123,8 @@ def handle_text(settings, text: str) -> None:
         if response_text:
             _speak_reply(settings, response_text)
         else:
-            _speak_reply(settings, "Sorry, I could not figure out that request.")
+            # _speak_reply(settings, "Sorry, I could not figure out that request.")
+            _play_error_sound_on_sonos(settings)
         return
     ha_call(settings, domain, service, payload)
     print(f"Executed: {domain}.{service} -> {payload}".strip())

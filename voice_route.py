@@ -61,27 +61,28 @@ def _room_options(reg: Dict[str, Any]) -> List[str]:
 
 
 def _build_prompt(user_text: str, reg: Dict[str, Any]) -> str:
-    actions = ["turn_on", "turn_off"]
+    actions = ["turn_on", "turn_off", "not_applicable"]
     entities = _entity_options(reg)
     rooms = _room_options(reg)
     prompt = {
         "task": "Select the best Home Assistant action and target from the options and return JSON only. This is the "
         "transcription of a verbal command and the STT algorithm may misunderstand words, so be mindful of words "
         "that sound similar. If the user asks to control all lights in a room, set room_name from room_options. "
-        "If the request is unrelated to home control or is unclear, set intent to reply and provide response_text. "
-        "If the request seems like an accidental trigger of the voice assistant, respond with an empty reply."
+        "If the request is unclear or unrelated to home control, set \"service\" to \"not_applicable\". "
+        # "If the request is unrelated to home control or is unclear, set intent to reply and provide response_text. "
+        # "If the request seems like an accidental trigger of the voice assistant, respond with an empty reply."
         "ANSWER IN ENGLISH",
         "user_text": user_text,
         "action_options": actions,
         "entity_options": entities,
         "room_options": rooms,
         "output_schema": {
-            "intent": "string, either 'action' or 'reply'",
+            # "intent": "string, either 'action' or 'reply'",
             "service": "string, one of action_options; required when intent is 'action'",
-            "entity_friendly_name": "string, one of entity_options.friendly_name; optional when targeting a room",
-            "room_name": "string, one of room_options; use when targeting all lights in a room",
-            "data": "object; optional. Only include keys from selected entity_options.extra_parameters. THERE MAY BE MULTIPLE.",
-            "response_text": "string; required when intent is 'reply'",
+            "entity_friendly_name": "string, one of entity_options.friendly_name; omit if targeting an entire room rather than one entity in that room.",
+            "room_name": "string, one of room_options; use ONLY when targeting all lights in an ENTIRE room, otherwise omit",
+            "data": "object; optional. Omit if not requested in user_text. Only include keys from selected entity_options.extra_parameters. THERE MAY BE MULTIPLE.",
+            # "response_text": "string; required when intent is 'reply'",
         },
     }
     return json.dumps(prompt, ensure_ascii=True, indent=2)

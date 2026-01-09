@@ -1,0 +1,365 @@
+{
+  "areas": [
+    {
+      "area_id": null,
+      "light_entities": [
+        "light.artemide_tolomeo_mega_living_room_floor_lamp",
+        "light.dresser_lamp"
+      ],
+      "name": "living_room",
+      "name_norm": "living room"
+    },
+    {
+      "area_id": null,
+      "light_entities": [
+        "light.office_floor_lamp"
+      ],
+      "name": "office",
+      "name_norm": "office"
+    },
+    {
+      "area_id": null,
+      "light_entities": [
+        "light.countertop_light"
+      ],
+      "name": "kitchen",
+      "name_norm": "kitchen"
+    },
+    {
+      "area_id": null,
+      "light_entities": [
+        "light.bedside_lamp"
+      ],
+      "name": "bedroom",
+      "name_norm": "bedroom"
+    },
+    {
+      "area_id": null,
+      "light_entities": [],
+      "name": "apartment",
+      "name_norm": "apartment"
+    }
+  ],
+  "counts": {
+    "lights": 5,
+    "switches": 18,
+    "total": 23
+  },
+  "entities": [
+    {
+      "device_class": null,
+      "domain": "light",
+      "entity_id": "light.artemide_tolomeo_mega_living_room_floor_lamp",
+      "entity_norm": "light artemide tolomeo mega living room floor lamp",
+      "friendly_name": "Artemide Tolomeo Mega (Living Room Floor Lamp)",
+      "friendly_norm": "artemide tolomeo mega living room floor lamp",
+      "supported_color_modes": [
+        "onoff"
+      ]
+    },
+    {
+      "device_class": null,
+      "domain": "light",
+      "entity_id": "light.countertop_light",
+      "entity_norm": "light countertop light",
+      "friendly_name": "Countertop light",
+      "friendly_norm": "countertop light",
+      "supported_color_modes": [
+        "onoff"
+      ]
+    },
+    {
+      "device_class": null,
+      "domain": "switch",
+      "entity_id": "switch.living_room_crossfade",
+      "entity_norm": "switch living room crossfade",
+      "friendly_name": "Living Room Crossfade",
+      "friendly_norm": "living room crossfade",
+      "supported_color_modes": null
+    },
+    {
+      "device_class": null,
+      "domain": "switch",
+      "entity_id": "switch.living_room_loudness",
+      "entity_norm": "switch living room loudness",
+      "friendly_name": "Living Room Loudness",
+      "friendly_norm": "living room loudness",
+      "supported_color_modes": null
+    },
+    {
+      "device_class": null,
+      "domain": "switch",
+      "entity_id": "switch.living_room_surround_music_full_volume",
+      "entity_norm": "switch living room surround music full volume",
+      "friendly_name": "Living Room Surround music full volume",
+      "friendly_norm": "living room surround music full volume",
+      "supported_color_modes": null
+    },
+    {
+      "device_class": null,
+      "domain": "switch",
+      "entity_id": "switch.living_room_night_sound",
+      "entity_norm": "switch living room night sound",
+      "friendly_name": "Living Room Night sound",
+      "friendly_norm": "living room night sound",
+      "supported_color_modes": null
+    },
+    {
+      "device_class": null,
+      "domain": "switch",
+      "entity_id": "switch.living_room_speech_enhancement",
+      "entity_norm": "switch living room speech enhancement",
+      "friendly_name": "Living Room Speech enhancement",
+      "friendly_norm": "living room speech enhancement",
+      "supported_color_modes": null
+    },
+    {
+      "device_class": null,
+      "domain": "switch",
+      "entity_id": "switch.living_room_subwoofer_enabled",
+      "entity_norm": "switch living room subwoofer enabled",
+      "friendly_name": "Living Room Subwoofer enabled",
+      "friendly_norm": "living room subwoofer enabled",
+      "supported_color_modes": null
+    },
+    {
+      "device_class": null,
+      "domain": "switch",
+      "entity_id": "switch.living_room_surround_enabled",
+      "entity_norm": "switch living room surround enabled",
+      "friendly_name": "Living Room Surround enabled",
+      "friendly_norm": "living room surround enabled",
+      "supported_color_modes": null
+    },
+    {
+      "device_class": null,
+      "domain": "switch",
+      "entity_id": "switch.office_crossfade",
+      "entity_norm": "switch office crossfade",
+      "friendly_name": "Office Crossfade",
+      "friendly_norm": "office crossfade",
+      "supported_color_modes": null
+    },
+    {
+      "device_class": null,
+      "domain": "switch",
+      "entity_id": "switch.office_loudness",
+      "entity_norm": "switch office loudness",
+      "friendly_name": "Office Loudness",
+      "friendly_norm": "office loudness",
+      "supported_color_modes": null
+    },
+    {
+      "device_class": null,
+      "domain": "light",
+      "entity_id": "light.bedside_lamp",
+      "entity_norm": "light bedside lamp",
+      "friendly_name": "Bedside Lamp",
+      "friendly_norm": "bedside lamp",
+      "supported_color_modes": [
+        "brightness"
+      ]
+    },
+    {
+      "device_class": null,
+      "domain": "light",
+      "entity_id": "light.dresser_lamp",
+      "entity_norm": "light dresser lamp",
+      "friendly_name": "Noguchi",
+      "friendly_norm": "noguchi",
+      "supported_color_modes": [
+        "brightness",
+        "color_temp_kelvin"
+      ]
+    },
+    {
+      "device_class": null,
+      "domain": "light",
+      "entity_id": "light.office_floor_lamp",
+      "entity_norm": "light office floor lamp",
+      "friendly_name": "Office floor lamp",
+      "friendly_norm": "office floor lamp",
+      "supported_color_modes": [
+        "brightness",
+        "color_temp_kelvin"
+      ]
+    },
+    {
+      "device_class": null,
+      "domain": "switch",
+      "entity_id": "switch.noguchi",
+      "entity_norm": "switch noguchi",
+      "friendly_name": "Humidifier",
+      "friendly_norm": "humidifier",
+      "supported_color_modes": null
+    },
+    {
+      "device_class": null,
+      "domain": "switch",
+      "entity_id": "switch.noguchi_child_lock",
+      "entity_norm": "switch noguchi child lock",
+      "friendly_name": "Humidifier Child lock",
+      "friendly_norm": "humidifier child lock",
+      "supported_color_modes": null
+    },
+    {
+      "device_class": null,
+      "domain": "switch",
+      "entity_id": "switch.noguchi_disable_led",
+      "entity_norm": "switch noguchi disable led",
+      "friendly_name": "Humidifier Disable LED",
+      "friendly_norm": "humidifier disable led",
+      "supported_color_modes": null
+    },
+    {
+      "device_class": null,
+      "domain": "switch",
+      "entity_id": "switch.counter_light",
+      "entity_norm": "switch counter light",
+      "friendly_name": "Countertop light",
+      "friendly_norm": "countertop light",
+      "supported_color_modes": null
+    },
+    {
+      "device_class": null,
+      "domain": "switch",
+      "entity_id": "switch.counter_light_child_lock",
+      "entity_norm": "switch counter light child lock",
+      "friendly_name": "Countertop light Child lock",
+      "friendly_norm": "countertop light child lock",
+      "supported_color_modes": null
+    },
+    {
+      "device_class": null,
+      "domain": "switch",
+      "entity_id": "switch.counter_light_disable_led",
+      "entity_norm": "switch counter light disable led",
+      "friendly_name": "Countertop light Disable LED",
+      "friendly_norm": "countertop light disable led",
+      "supported_color_modes": null
+    },
+    {
+      "device_class": null,
+      "domain": "switch",
+      "entity_id": "switch.tolomeo",
+      "entity_norm": "switch tolomeo",
+      "friendly_name": "Artemide Tolomeo Mega (Living Room Floor Lamp)",
+      "friendly_norm": "artemide tolomeo mega living room floor lamp",
+      "supported_color_modes": null
+    },
+    {
+      "device_class": null,
+      "domain": "switch",
+      "entity_id": "switch.tolomeo_child_lock",
+      "entity_norm": "switch tolomeo child lock",
+      "friendly_name": "Artemide Tolomeo Mega (Living Room Floor Lamp) Child lock",
+      "friendly_norm": "artemide tolomeo mega living room floor lamp child lock",
+      "supported_color_modes": null
+    },
+    {
+      "device_class": null,
+      "domain": "switch",
+      "entity_id": "switch.tolomeo_disable_led",
+      "entity_norm": "switch tolomeo disable led",
+      "friendly_name": "Artemide Tolomeo Mega (Living Room Floor Lamp) Disable LED",
+      "friendly_norm": "artemide tolomeo mega living room floor lamp disable led",
+      "supported_color_modes": null
+    }
+  ],
+  "generated_at": 1767896821.9256942,
+  "ha_url": "http://192.168.1.203:8123",
+  "index": {
+    "by_entity_norm": {
+      "light artemide tolomeo mega living room floor lamp": "light.artemide_tolomeo_mega_living_room_floor_lamp",
+      "light bedside lamp": "light.bedside_lamp",
+      "light countertop light": "light.countertop_light",
+      "light dresser lamp": "light.dresser_lamp",
+      "light office floor lamp": "light.office_floor_lamp",
+      "switch counter light": "switch.counter_light",
+      "switch counter light child lock": "switch.counter_light_child_lock",
+      "switch counter light disable led": "switch.counter_light_disable_led",
+      "switch living room crossfade": "switch.living_room_crossfade",
+      "switch living room loudness": "switch.living_room_loudness",
+      "switch living room night sound": "switch.living_room_night_sound",
+      "switch living room speech enhancement": "switch.living_room_speech_enhancement",
+      "switch living room subwoofer enabled": "switch.living_room_subwoofer_enabled",
+      "switch living room surround enabled": "switch.living_room_surround_enabled",
+      "switch living room surround music full volume": "switch.living_room_surround_music_full_volume",
+      "switch noguchi": "switch.noguchi",
+      "switch noguchi child lock": "switch.noguchi_child_lock",
+      "switch noguchi disable led": "switch.noguchi_disable_led",
+      "switch office crossfade": "switch.office_crossfade",
+      "switch office loudness": "switch.office_loudness",
+      "switch tolomeo": "switch.tolomeo",
+      "switch tolomeo child lock": "switch.tolomeo_child_lock",
+      "switch tolomeo disable led": "switch.tolomeo_disable_led"
+    },
+    "by_friendly_norm": {
+      "artemide tolomeo mega living room floor lamp": [
+        "light.artemide_tolomeo_mega_living_room_floor_lamp",
+        "switch.tolomeo"
+      ],
+      "artemide tolomeo mega living room floor lamp child lock": [
+        "switch.tolomeo_child_lock"
+      ],
+      "artemide tolomeo mega living room floor lamp disable led": [
+        "switch.tolomeo_disable_led"
+      ],
+      "bedside lamp": [
+        "light.bedside_lamp"
+      ],
+      "countertop light": [
+        "light.countertop_light",
+        "switch.counter_light"
+      ],
+      "countertop light child lock": [
+        "switch.counter_light_child_lock"
+      ],
+      "countertop light disable led": [
+        "switch.counter_light_disable_led"
+      ],
+      "humidifier": [
+        "switch.noguchi"
+      ],
+      "humidifier child lock": [
+        "switch.noguchi_child_lock"
+      ],
+      "humidifier disable led": [
+        "switch.noguchi_disable_led"
+      ],
+      "living room crossfade": [
+        "switch.living_room_crossfade"
+      ],
+      "living room loudness": [
+        "switch.living_room_loudness"
+      ],
+      "living room night sound": [
+        "switch.living_room_night_sound"
+      ],
+      "living room speech enhancement": [
+        "switch.living_room_speech_enhancement"
+      ],
+      "living room subwoofer enabled": [
+        "switch.living_room_subwoofer_enabled"
+      ],
+      "living room surround enabled": [
+        "switch.living_room_surround_enabled"
+      ],
+      "living room surround music full volume": [
+        "switch.living_room_surround_music_full_volume"
+      ],
+      "noguchi": [
+        "light.dresser_lamp"
+      ],
+      "office crossfade": [
+        "switch.office_crossfade"
+      ],
+      "office floor lamp": [
+        "light.office_floor_lamp"
+      ],
+      "office loudness": [
+        "switch.office_loudness"
+      ]
+    }
+  }
+}

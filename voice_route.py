@@ -8,7 +8,14 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import requests
-from llama_index.core import Document, Settings, VectorStoreIndex
+from llama_index.core import (
+    Document,
+    Settings,
+    StorageContext,
+    VectorStoreIndex,
+    load_index_from_storage,
+)
+from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
 
@@ -71,36 +78,35 @@ def _registry_rows(reg: Dict[str, Any]) -> List[Dict[str, str]]:
     return rows
 
 
-_RAG_INDEX: VectorStoreIndex | None = None
-_RAG_ROWS: List[Dict[str, str]] | None = None
-
-
 def _row_text(row: Dict[str, str]) -> str:
     return f"{row.get('item', '')} {row.get('type', '')} {row.get('other_attributes', '')}".strip()
 
 
-def _get_rag_index(rows: List[Dict[str, str]]) -> VectorStoreIndex:
-    global _RAG_INDEX, _RAG_ROWS
-    if _RAG_INDEX is None or _RAG_ROWS != rows:
-        Settings.embed_model = HuggingFaceEmbedding(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
-        )
-        docs = [Document(text=_row_text(row), metadata={"row": row}) for row in rows]
-        _RAG_INDEX = VectorStoreIndex.from_documents(docs)
-        _RAG_ROWS = rows
-    return _RAG_INDEX
+def _rag_index_dir(registry_path: Path) -> Path:
+    return registry_path.with_suffix(".rag")
+
+
+def _load_rag_index(registry_path: Path, rows: List[Dict[str, str]]) -> VectorStoreIndex:
+    Settings.embed_model = HuggingFaceEmbedding(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
+    rag_dir = _rag_index_dir(registry_path)
+    if rag_dir.exists():
+        storage_context = StorageContext.from_defaults(persist_dir=str(rag_dir))
+        return load_index_from_storage(storage_context)
+    docs = [Document(text=_row_text(row), metadata={"row": row}) for row in rows]
+    return VectorStoreIndex.from_documents(docs)
 
 
 def _select_relevant_rows(
     user_text: str,
-    rows: List[Dict[str, str]],
+    index: VectorStoreIndex,
     max_rows: int = 20,
 ) -> List[Dict[str, str]]:
-    if not rows:
-        return []
-    index = _get_rag_index(rows)
     retriever = index.as_retriever(similarity_top_k=max_rows)
-    nodes = retriever.retrieve(user_text)
+    query_engine = RetrieverQueryEngine.from_args(retriever)
+    response = query_engine.query(user_text)
+    nodes = response.source_nodes or []
     return [node.metadata["row"] for node in nodes if "row" in node.metadata]
 
 
@@ -116,10 +122,14 @@ def _format_registry_table(rows: List[Dict[str, str]]) -> str:
     return "\n".join(lines)
 
 
-def _build_prompt(user_text: str, reg: Dict[str, Any]) -> str:
+def _build_prompt(user_text: str, reg: Dict[str, Any], registry_path: Path) -> str:
     actions = ["turn_on", "turn_off", "not_applicable"]
     rows = _registry_rows(reg)
-    relevant_rows = _select_relevant_rows(user_text, rows)
+    if rows:
+        index = _load_rag_index(registry_path, rows)
+        relevant_rows = _select_relevant_rows(user_text, index)
+    else:
+        relevant_rows = []
     registry_table = _format_registry_table(relevant_rows)
     prompt = {
         "task": "Select the best Home Assistant action and target from the options and return JSON only. This is the "
@@ -194,7 +204,7 @@ def _llm_request(llm_url: str, llm_model: str, llm_api_key: str, prompt: str) ->
 
 
 def llm_route(settings, user_text: str, reg: Dict[str, Any]) -> Dict[str, Any]:
-    prompt = _build_prompt(user_text, reg)
+    prompt = _build_prompt(user_text, reg, settings.registry_path)
 
     t0 = time.time()
     text = _llm_request(settings.llm_url, settings.llm_model, settings.llm_api_key, prompt)

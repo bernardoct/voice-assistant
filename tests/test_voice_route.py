@@ -20,6 +20,7 @@ except ModuleNotFoundError:
 
     sys.modules["requests"] = _RequestsStub()
 
+from assistant_env import load_settings
 import voice_route
 
 
@@ -142,6 +143,128 @@ def test_llm_route_builds_prompt_and_parses_response(ha_registry, monkeypatch):
     assert captured["user_text"] == "Please turn on the lights in the living room"
     assert captured["reg"] == ha_registry
     assert captured["prompt"] == "PROMPT"
+    assert result == {
+        "service": "turn_on",
+        "entities": [
+            "light.artemide_tolomeo_mega_living_room_floor_lamp",
+            "light.dresser_lamp",
+        ],
+    }
+
+
+def test_llm_request_live(ha_registry):
+    prompt = """
+        {
+        "task": "Select the best Home Assistant action and target from the options and return JSON only. This is the 
+        transcription of a verbal command and the STT algorithm may misunderstand words, so be mindful of words that 
+        sound similar. If the user asks to control all lights in a room, set room_name from room_options. If the 
+        request is unclear or unrelated to home control, set \"service\" to \"not_applicable\". ANSWER IN ENGLISH",
+        "user_text": "Please turn on the lights in the living room",
+        "action_options": [
+            "turn_on",
+            "turn_off",
+            "not_applicable"
+        ],
+        "entity_options": [
+            {
+            "friendly_name": "Artemide Tolomeo Mega (Living Room Floor Lamp)",
+            "extra_parameters": []
+            },
+            {
+            "friendly_name": "Countertop light",
+            "extra_parameters": []
+            },
+            {
+            "friendly_name": "Bedside Lamp",
+            "extra_parameters": [
+                "brightness_pct"
+            ]
+            },
+            {
+            "friendly_name": "Noguchi",
+            "extra_parameters": [
+                "brightness_pct",
+                "color_temp_kelvin"
+            ]
+            },
+            {
+            "friendly_name": "Office floor lamp",
+            "extra_parameters": [
+                "brightness_pct",
+                "color_temp_kelvin"
+            ]
+            },
+            {
+            "friendly_name": "Humidifier",
+            "extra_parameters": []
+            },
+            {
+            "friendly_name": "Countertop light",
+            "extra_parameters": []
+            },
+            {
+            "friendly_name": "Artemide Tolomeo Mega (Living Room Floor Lamp)",
+            "extra_parameters": []
+            }
+        ],
+
+        "areas": [
+            {
+            "light_entities": [
+                "light.artemide_tolomeo_mega_living_room_floor_lamp",
+                "light.dresser_lamp"
+            ],
+            "name": "living_room"
+            },
+            {
+            "light_entities": [
+                "light.office_floor_lamp"
+            ],
+            "name": "office"
+            },
+            {
+            "light_entities": [
+                "light.countertop_light"
+            ],
+            "name": "kitchen"
+            },
+            {
+            "light_entities": [
+                "light.bedside_lamp"
+            ],
+            "name": "bedroom"
+            },
+            {
+            "light_entities": [],
+            "name": "apartment"
+            }
+        ],
+        "output_schema": {
+            "service": "string, one of action_options; required when intent is 'action'",
+            "entity_friendly_name": "string, one of entity_options.friendly_name; omit if the user targeted an entire room rather than one entity in that room.",
+            "room_name": "string, one of room_options; use ONLY when the user targeted all lights in an ENTIRE room, otherwise omit",
+            "data": "object; optional. Omit if not requested in user_text. Only include keys from selected entity_options.extra_parameters. THERE MAY BE MULTIPLE."
+        }
+        }
+        """
+
+    settings = load_settings()
+    
+    text = voice_route._llm_request(settings.llm_url, settings.llm_model, settings.llm_api_key, prompt)
+    response = json.loads(text)
+
+def test_llm_route_builds_prompt_and_parses_response_live(ha_registry):
+    captured = {}
+
+    settings = load_settings()
+
+    result = voice_route.llm_route(
+        settings, "Please turn on the lights in the living room", ha_registry
+    )
+
+    assert captured["user_text"] == "Please turn on the lights in the living room"
+    assert captured["reg"] == ha_registry
+    assert captured["prompt"] == prompt
     assert result == {
         "service": "turn_on",
         "entities": [

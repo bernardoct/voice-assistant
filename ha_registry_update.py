@@ -12,6 +12,8 @@ from typing import Any, Dict, List
 import requests
 
 from assistant_env import load_settings
+from llama_index.core import Document, Settings, VectorStoreIndex
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
 
 def norm(s: str) -> str:
@@ -20,6 +22,54 @@ def norm(s: str) -> str:
     s = re.sub(r"[^a-z0-9 ]+", " ", s)
     s = re.sub(r"\s+", " ", s).strip()
     return s
+
+
+def _row_text(row: Dict[str, str]) -> str:
+    return f"{row.get('item', '')} {row.get('type', '')} {row.get('other_attributes', '')}".strip()
+
+
+def _rag_rows(payload: Dict[str, Any]) -> List[Dict[str, str]]:
+    rows: List[Dict[str, str]] = []
+    mode_to_attribute = {
+        "brightness": "brightness",
+        "color_temp_kelvin": "warmth",
+    }
+    for entity in payload.get("entities", []):
+        friendly_name = entity.get("friendly_name", "")
+        supported_modes = entity.get("supported_color_modes") or []
+        extra_attributes = [
+            mode_to_attribute[m] for m in supported_modes if m in mode_to_attribute
+        ]
+        rows.append(
+            {
+                "item": friendly_name,
+                "type": entity.get("domain") or "entity",
+                "other_attributes": ", ".join(extra_attributes),
+            }
+        )
+    for area in payload.get("areas", []):
+        name = area.get("name")
+        if name:
+            rows.append(
+                {
+                    "item": name,
+                    "type": "area",
+                    "other_attributes": "",
+                }
+            )
+    return rows
+
+
+def _build_rag_index(output_path: Path, payload: Dict[str, Any]) -> None:
+    rows = _rag_rows(payload)
+    if not rows:
+        return
+    Settings.embed_model = HuggingFaceEmbedding(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
+    docs = [Document(text=_row_text(row), metadata={"row": row}) for row in rows]
+    index = VectorStoreIndex.from_documents(docs)
+    index.storage_context.persist(persist_dir=str(output_path.with_suffix(".rag")))
 
 
 def ha_get(ha_url: str, ha_token: str, path: str, timeout: int = 10) -> Any:
@@ -181,6 +231,7 @@ def main() -> int:
     tmp = out_path.with_suffix(".tmp")
     tmp.write_text(json.dumps(payload, indent=2, sort_keys=True))
     tmp.replace(out_path)
+    _build_rag_index(out_path, payload)
     return 0
 
 
